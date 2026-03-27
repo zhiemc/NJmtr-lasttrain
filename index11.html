@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>南京地铁 末班方案查询</title>
+    <!-- 引入Font Awesome图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #f4f5f7;
+            --card: rgba(255, 255, 255, 0.92);
+            --text: #111111;
+            --subtext: #666666;
+            --muted: #8a8a8a;
+            --border: #e6e7ea;
+            --shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+            --radius: 16px;
+            --radius-lg: 20px;
+            --ease: cubic-bezier(0.2, 0, 0.2, 1);
+            --dur: 300ms;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "HarmonyOS Sans", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+        }
+        .app {
+            width: 100%;
+            max-width: 420px;
+            min-height: 100vh;
+            padding: 32px 18px 24px;
+            position: relative;
+        }
+        .view {
+            transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+        }
+        .view.hidden {
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+        }
+        .home-view {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            padding-top: 80px;
+        }
+        .home-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 36px;
+            background: linear-gradient(180deg, #ffffff 0%, #f2f4f7 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow);
+        }
+        .home-icon i {
+            font-size: 34px;
+            color: #111111;
+        }
+        .home-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .station-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            transition: transform 400ms var(--ease), opacity 400ms var(--ease);
+        }
+        .station-btn {
+            flex: 1;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px 8px;
+            text-align: center;
+            font-size: 15px;
+            font-weight: 600;
+            color: #333333;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
+            transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+            cursor: pointer;
+            --ripple-color: rgba(10, 100, 201, 0.2);
+        }
+        .station-btn:active {
+            transform: scale(0.98);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        }
+        .station-btn.small {
+            font-size: 14px;
+            padding: 10px 8px;
+        }
+        .arrow-icon {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #7a7a7a;
+            border: none;
+            background: transparent;
+            border-radius: 999px;
+            transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+        }
+        .arrow-icon i {
+            font-size: 18px;
+        }
+        .swap-btn {
+            border: 1px solid var(--border);
+            background: #ffffff;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
+            cursor: pointer;
+            color: #666666;
+            --ripple-color: rgba(102, 102, 102, 0.2);
+        }
+        .swap-btn:active {
+            transform: scale(0.96);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        }
+        .result-view {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 400ms var(--ease), opacity 400ms var(--ease);
+        }
+        .result-view.is-entering .result-header {
+            transform: translateY(88px);
+            opacity: 0.92;
+        }
+        .cards {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .plan-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 14px 14px 16px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(6px);
+            transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity 400ms var(--ease), filter 400ms var(--ease);
+            opacity: 1;
+            filter: blur(0);
+        }
+        .plan-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+        }
+        .plan-card.card-enter {
+            transform: translateY(-36px);
+            opacity: 0;
+            filter: blur(16px);
+            transition: transform 400ms var(--ease), opacity 400ms var(--ease), filter 400ms var(--ease);
+        }
+        .plan-card.card-enter.card-enter-active {
+            transform: translateY(0);
+            opacity: 1;
+            filter: blur(0);
+        }
+        .plan-card.card-exit {
+            transform: translateY(12px);
+            opacity: 0;
+            filter: blur(16px);
+            transition: transform 400ms var(--ease), opacity 400ms var(--ease), filter 400ms var(--ease);
+        }
+        .plan-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+            font-variant-numeric: tabular-nums;
+        }
+        .plan-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .plan-title i {
+            font-size: 16px;
+        }
+        .card-metrics {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 10px;
+            background: #f7f8fa;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            font-variant-numeric: tabular-nums;
+        }
+        .metric-duration {
+            color: #0a64c9;
+            font-weight: 700;
+            font-size: 16px;
+            white-space: nowrap;
+            text-align: right;
+        }
+        .metric-arrive {
+            color: #0a64c9;
+            font-weight: 700;
+            font-size: 16px;
+            white-space: nowrap;
+            text-align: left;
+        }
+        .path-visual {
+            background: #f7f8fa;
+            border-radius: 12px;
+            padding: 8px 8px 10px;
+            overflow: hidden;
+        }
+        .path-vertical-layout {
+            display: grid;
+            grid-template-columns: 18px 1fr;
+            column-gap: 8px;
+            align-items: start;
+        }
+        .path-line-column {
+            position: relative;
+        }
+        .path-vertical-segment {
+            position: absolute;
+            left: 7px;
+            width: 4px;
+            background: var(--line-color);
+            border-radius: 3px;
+        }
+        .path-row-list {
+            display: flex;
+            flex-direction: column;
+        }
+        .path-row {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-width: 0;
+        }
+        .path-station-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1f1f1f;
+            line-height: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 120px;
+            flex-shrink: 1;
+        }
+        .path-row.end .path-station-name {
+            max-width: 100%;
+        }
+        .path-arrive-time {
+            color: #0a64c9;
+            font-weight: 700;
+            font-size: 16px;
+            white-space: nowrap;
+            text-align: left;
+            flex-shrink: 0;
+        }
+        .path-line-tag {
+            background: var(--line-color);
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
+            padding: 3px 7px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+        .path-direction {
+            font-size: 13px;
+            color: #444444;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+            min-width: 0;
+        }
+        .last-panel {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 10px;
+            background: #f7f8fa;
+            border-radius: 12px;
+            padding: 10px 12px;
+            border: 1px solid #e6e7ea;
+        }
+        .last-panel-label {
+            font-size: 15px;
+            font-weight: 700;
+            color: #111111;
+            white-space: nowrap;
+        }
+        .last-panel-values {
+            flex: 1;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 24px;
+            min-width: 0;
+        }
+        .last-slot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .last-slot-label {
+            font-size: 13px;
+            color: #222222;
+            line-height: 1.2;
+            margin-bottom: 4px;
+        }
+        .last-slot-value {
+            font-size: 20px;
+            font-weight: 800;
+            color: #0a64c9;
+            line-height: 1;
+            letter-spacing: 0.3px;
+        }
+        .last-panel.single .last-panel-values {
+            gap: 0;
+        }
+        .last-panel + .path-visual {
+            margin-top: 12px;
+        }
+        .notes-fixed {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 11px;
+            color: #777777;
+            line-height: 1.6;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+            backdrop-filter: blur(6px);
+            margin-top: 4px;
+        }
+        [data-ripple="true"] {
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+        }
+        .ripple-wave {
+            position: absolute;
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            pointer-events: none;
+            animation: ripple-wave 620ms var(--ease) forwards;
+            z-index: 1;
+        }
+        @keyframes ripple-wave {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0.45;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0;
+            }
+        }
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity var(--dur) var(--ease);
+            z-index: 50;
+        }
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .station-picker {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 72vh;
+            background: var(--card);
+            border-radius: 20px 20px 0 0;
+            border: 1px solid var(--border);
+            box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.12);
+            transform: translateY(100%);
+            transition: transform var(--dur) var(--ease);
+            z-index: 60;
+            display: flex;
+            flex-direction: column;
+        }
+        .station-picker.active {
+            transform: translateY(0);
+        }
+        .picker-top {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f7f8fa;
+            border: 1px solid #e6e7ea;
+            border-radius: 12px;
+            padding: 8px 10px;
+        }
+        .search-box i {
+            color: #999999;
+        }
+        .search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 14px;
+        }
+        .clear-btn {
+            border: none;
+            background: transparent;
+            color: #999999;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .picker-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        .line-list {
+            width: 38%;
+            background: #f6f7fa;
+            overflow-y: auto;
+            padding: 8px 6px;
+            border-right: 1px solid var(--border);
+        }
+        .line-item {
+            padding: 12px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+        }
+        .line-item.active {
+            transform: scale(1.02);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+        }
+        .station-list {
+            width: 62%;
+            overflow-y: auto;
+        }
+        .station-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 14px;
+            border-bottom: 1px solid #f0f1f4;
+            font-size: 14px;
+            color: #333333;
+            cursor: pointer;
+            transition: background var(--dur) var(--ease);
+        }
+        .station-item:hover {
+            background: #f5f7fb;
+        }
+        .station-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+        .transfer-tag {
+            display: inline-block;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+        .line-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
+            color: #ffffff;
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+        .station-item i {
+            color: #666666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="view home-view" id="homeView">
+            <div class="home-icon"><i class="fa-regular fa-clock"></i></div>
+            <div class="home-title">南京地铁 末班方案查询</div>
+            <div class="station-selector">
+                <button class="station-btn" id="homeStartBtn" data-ripple="true">请选择起点站</button>
+                <button class="arrow-icon swap-btn" id="homeSwapBtn" type="button" aria-label="互换起终点" data-ripple="true"><i class="fa-solid fa-caret-right"></i></button>
+                <button class="station-btn" id="homeEndBtn" data-ripple="true">请选择终点站</button>
+            </div>
+        </div>
+        <div class="view result-view hidden" id="resultView">
+            <div class="result-header">
+                <button class="station-btn small" id="resultStartBtn" data-ripple="true">请选择起点站</button>
+                <button class="arrow-icon swap-btn" id="resultSwapBtn" type="button" aria-label="互换起终点" data-ripple="true"><i class="fa-solid fa-caret-right"></i></button>
+                <button class="station-btn small" id="resultEndBtn" data-ripple="true">请选择终点站</button>
+            </div>
+            <div class="cards" id="resultCards"></div>
+            <div class="notes-fixed" id="notes">
+                <div>1、由时刻表计算生成，换乘时含候车时间默认共6分钟。</div>
+                <div>2、末班车开出前5分钟停止入闸。</div>
+                <div>3、实际运营情况可能存在出入，请提前候车！</div>
+            </div>
+        </div>
+    </div>
+    <div class="overlay" id="overlay"></div>
+    <div class="station-picker" id="picker">
+        <div class="picker-top">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input class="search-input" id="stationSearch" placeholder="选择或输入本站（支持首拼首字母）" />
+                <button class="clear-btn" id="clearSearch" type="button" data-ripple="true">×</button>
+            </div>
+        </div>
+        <div class="picker-body">
+            <div class="line-list" id="lineList"></div>
+            <div class="station-list" id="stationList"></div>
+        </div>
+    </div>
+    <script>
+        // ===================== 1. 基础数据配置 =====================
+        // 全局换乘时间（分钟）
+        const TRANSFER_TIME = 6;
+        // 官方线路色值
+        const lineColorMap = {
+            '1号线': 'rgb(18,170,255)',
+            '2号线': 'rgb(211,41,41)',
+            '3号线': 'rgb(54,153,80)',
+            '4号线': 'rgb(133,101,196)',
+            '5号线': 'rgb(253,218,38)',
+            '7号线': 'rgb(62,121,27)',
+            '10号线': 'rgb(229,195,123)',
+            'S1号线': 'rgb(107,204,224)',
+            'S3号线': 'rgb(198,121,187)',
+            'S6号线': 'rgb(214,164,220)',
+            'S7号线': 'rgb(252,130,172)',
+            'S8号线': 'rgb(254,162,69)',
+            'S9号线': 'rgb(255,195,1)'
+        };
+        // 完整线路数据（含站点顺序、区间运行时间、换乘信息）
+        const metroData = [
+            {
+                lineCode: '1号线',
+                lineName: '1号线',
+                lineColor: lineColorMap['1号线'],
+                stations: [
+                    { name: '八卦洲大桥南', transferLines: [] },
+                    { name: '笆斗山', transferLines: [], duration: 2 },
+                    { name: '燕子矶', transferLines: [], duration: 2 },
+                    { name: '吉祥庵', transferLines: [], duration: 2 },
+                    { name: '晓庄', transferLines: ['7号线'], duration: 2 },
+                    { name: '迈皋桥', transferLines: [], duration: 3 },
+                    { name: '红山动物园', transferLines: [], duration: 2 },
+                    { name: '南京站', transferLines: ['3号线'], duration: 2 },
+                    { name: '新模范马路', transferLines: [], duration: 3 },
+                    { name: '玄武门', transferLines: [], duration: 2 },
+                    { name: '鼓楼', transferLines: ['4号线'], duration: 2 },
+                    { name: '珠江路', transferLines: [], duration: 2 },
+                    { name: '新街口', transferLines: ['2号线'], duration: 2 },
+                    { name: '张府园', transferLines: [], duration: 2 },
+                    { name: '三山街', transferLines: ['5号线'], duration: 2 },
+                    { name: '中华门', transferLines: [], duration: 3 },
+                    { name: '安德门', transferLines: ['10号线'], duration: 3 },
+                    { name: '天隆寺', transferLines: [], duration: 3 },
+                    { name: '软件大道', transferLines: [], duration: 2 },
+                    { name: '花神庙', transferLines: [], duration: 2 },
+                    { name: '南京南站', transferLines: ['3号线', 'S1号线', 'S3号线'], duration: 3 },
+                    { name: '双龙大道', transferLines: [], duration: 3 },
+                    { name: '河定桥', transferLines: [], duration: 2 },
+                    { name: '胜太路', transferLines: [], duration: 2 },
+                    { name: '百家湖', transferLines: [], duration: 2 },
+                    { name: '小龙湾', transferLines: [], duration: 3 },
+                    { name: '竹山路', transferLines: ['5号线'], duration: 2 },
+                    { name: '天印大道', transferLines: [], duration: 3 },
+                    { name: '龙眠大道', transferLines: [], duration: 2 },
+                    { name: '南医大・江苏经贸学院', transferLines: [], duration: 3 },
+                    { name: '南京交院', transferLines: [], duration: 3 },
+                    { name: '中国药科大学', transferLines: [], duration: 2 }
+                ]
+            },
+            {
+                lineCode: '2号线',
+                lineName: '2号线',
+                lineColor: lineColorMap['2号线'],
+                stations: [
+                    { name: '经天路', transferLines: [] },
+                    { name: '南大仙林校区', transferLines: [], duration: 2 },
+                    { name: '羊山公园', transferLines: [], duration: 2 },
+                    { name: '仙林中心', transferLines: [], duration: 2 },
+                    { name: '学则路', transferLines: [], duration: 3 },
+                    { name: '仙鹤门', transferLines: [], duration: 2 },
+                    { name: '金马路', transferLines: ['4号线'], duration: 2 },
+                    { name: '马群', transferLines: ['S6号线'], duration: 4 },
+                    { name: '钟灵街', transferLines: [], duration: 4 },
+                    { name: '孝陵卫', transferLines: [], duration: 2 },
+                    { name: '下马坊', transferLines: [], duration: 2 },
+                    { name: '苜蓿园', transferLines: [], duration: 2 },
+                    { name: '明故宫', transferLines: [], duration: 2 },
+                    { name: '西安门', transferLines: [], duration: 2 },
+                    { name: '大行宫', transferLines: ['3号线'], duration: 2 },
+                    { name: '新街口', transferLines: ['1号线'], duration: 3 },
+                    { name: '上海路', transferLines: ['5号线'], duration: 1 },
+                    { name: '汉中门', transferLines: [], duration: 2 },
+                    { name: '莫愁湖', transferLines: ['7号线'], duration: 2 },
+                    { name: '云锦路', transferLines: [], duration: 2 },
+                    { name: '集庆门大街', transferLines: [], duration: 3 },
+                    { name: '兴隆大街', transferLines: [], duration: 3 },
+                    { name: '奥体东', transferLines: [], duration: 2 },
+                    { name: '元通', transferLines: ['10号线'], duration: 2 },
+                    { name: '雨润大街', transferLines: [], duration: 2 },
+                    { name: '油坊桥', transferLines: ['S3号线'], duration: 4 },
+                    { name: '螺塘路', transferLines: ['7号线'], duration: 3 },
+                    { name: '青莲街', transferLines: [], duration: 2 },
+                    { name: '天保街', transferLines: [], duration: 2 },
+                    { name: '鱼嘴', transferLines: [], duration: 2 }
+                ]
+            },
+            {
+                lineCode: '3号线',
+                lineName: '3号线',
+                lineColor: lineColorMap['3号线'],
+                stations: [
+                    { name: '林场', transferLines: [] },
+                    { name: '星火路', transferLines: [], duration: 4 },
+                    { name: '东大成贤学院', transferLines: [], duration: 2 },
+                    { name: '泰冯路', transferLines: ['S8号线'], duration: 2 },
+                    { name: '天润城', transferLines: [], duration: 3 },
+                    { name: '柳州东路', transferLines: [], duration: 3 },
+                    { name: '上元门', transferLines: [], duration: 4 },
+                    { name: '五塘广场', transferLines: ['7号线'], duration: 2 },
+                    { name: '小市', transferLines: [], duration: 3 },
+                    { name: '南京站', transferLines: ['1号线'], duration: 3 },
+                    { name: '南京林业大学・新庄', transferLines: [], duration: 4 },
+                    { name: '鸡鸣寺', transferLines: ['4号线'], duration: 3 },
+                    { name: '浮桥', transferLines: [], duration: 3 },
+                    { name: '大行宫', transferLines: ['2号线'], duration: 2 },
+                    { name: '常府街', transferLines: [], duration: 2 },
+                    { name: '夫子庙', transferLines: ['5号线'], duration: 2 },
+                    { name: '武定门', transferLines: [], duration: 3 },
+                    { name: '雨花门', transferLines: [], duration: 2 },
+                    { name: '卡子门', transferLines: ['10号线'], duration: 2 },
+                    { name: '大明路', transferLines: [], duration: 2 },
+                    { name: '明发广场', transferLines: [], duration: 3 },
+                    { name: '南京南站', transferLines: ['1号线', 'S1号线', 'S3号线'], duration: 2 },
+                    { name: '宏运大道', transferLines: [], duration: 2 },
+                    { name: '胜太西路', transferLines: [], duration: 3 },
+                    { name: '天元西路', transferLines: [], duration: 3 },
+                    { name: '九龙湖', transferLines: ['5号线'], duration: 3 },
+                    { name: '诚信大道', transferLines: [], duration: 2 },
+                    { name: '东大九龙湖校区', transferLines: [], duration: 3 },
+                    { name: '秣周东路', transferLines: [], duration: 3 },
+                    { name: '上秦淮西', transferLines: [], duration: 4 },
+                    { name: '秣陵', transferLines: [], duration: 1 }
+                ]
+            },
+            {
+                lineCode: '4号线',
+                lineName: '4号线',
+                lineColor: lineColorMap['4号线'],
+                stations: [
+                    { name: '仙林湖', transferLines: [] },
+                    { name: '西岗桦墅', transferLines: [], duration: 3 },
+                    { name: '孟北', transferLines: [], duration: 3 },
+                    { name: '东流', transferLines: [], duration: 3 },
+                    { name: '灵山', transferLines: [], duration: 3 },
+                    { name: '汇通路', transferLines: [], duration: 2 },
+                    { name: '金马路', transferLines: ['2号线'], duration: 3 },
+                    { name: '徐庄・苏宁总部', transferLines: [], duration: 5 },
+                    { name: '聚宝山', transferLines: [], duration: 3 },
+                    { name: '王家湾', transferLines: [], duration: 3 },
+                    { name: '蒋王庙', transferLines: [], duration: 2 },
+                    { name: '岗子村', transferLines: [], duration: 3 },
+                    { name: '九华山', transferLines: [], duration: 2 },
+                    { name: '鸡鸣寺', transferLines: ['3号线'], duration: 2 },
+                    { name: '鼓楼', transferLines: ['1号线'], duration: 2 },
+                    { name: '云南路', transferLines: ['5号线'], duration: 2 },
+                    { name: '草场门・南艺・二师', transferLines: ['7号线'], duration: 5 },
+                    { name: '龙江', transferLines: [], duration: 2 }
+                ]
+            },
+            {
+                lineCode: '5号线',
+                lineName: '5号线',
+                lineColor: lineColorMap['5号线'],
+                stations: [
+                    { name: '方家营', transferLines: [] },
+                    { name: '南京西站', transferLines: [], duration: 1 },
+                    { name: '静海寺', transferLines: [], duration: 2 },
+                    { name: '下关', transferLines: [], duration: 2 },
+                    { name: '盐仓桥', transferLines: [], duration: 2 },
+                    { name: '福建路', transferLines: ['7号线'], duration: 2 },
+                    { name: '虹桥', transferLines: [], duration: 1 },
+                    { name: '青春广场', transferLines: [], duration: 2 },
+                    { name: '云南路', transferLines: ['4号线'], duration: 2 },
+                    { name: '五台山', transferLines: [], duration: 2 },
+                    { name: '上海路', transferLines: ['2号线'], duration: 2 },
+                    { name: '朝天宫', transferLines: [], duration: 2 },
+                    { name: '三山街', transferLines: ['1号线'], duration: 3 },
+                    { name: '夫子庙', transferLines: ['3号线'], duration: 2 },
+                    { name: '通济门', transferLines: [], duration: 2 },
+                    { name: '光华门', transferLines: [], duration: 2 },
+                    { name: '石门坎', transferLines: [], duration: 3 },
+                    { name: '七桥瓮', transferLines: [], duration: 2 },
+                    { name: '大校场', transferLines: ['10号线'], duration: 2 },
+                    { name: '神机营', transferLines: [], duration: 2 },
+                    { name: '东山香樟园', transferLines: [], duration: 3 },
+                    { name: '文靖路', transferLines: [], duration: 3 },
+                    { name: '东山', transferLines: [], duration: 1 },
+                    { name: '新亭路', transferLines: [], duration: 2 },
+                    { name: '竹山路', transferLines: ['1号线'], duration: 2 },
+                    { name: '科宁路', transferLines: [], duration: 2 },
+                    { name: '前庄', transferLines: [], duration: 4 },
+                    { name: '诚信大道', transferLines: ['3号线'], duration: 2 },
+                    { name: '九龙湖南', transferLines: [], duration: 4 },
+                    { name: '吉印大道', transferLines: ['S1号线'], duration: 2 }
+                ]
+            },
+            {
+                lineCode: '7号线',
+                lineName: '7号线',
+                lineColor: lineColorMap['7号线'],
+                stations: [
+                    { name: '仙新路', transferLines: [] },
+                    { name: '尧化门', transferLines: [], duration: 1 },
+                    { name: '尧化新村', transferLines: [], duration: 3 },
+                    { name: '丁家庄南', transferLines: [], duration: 2 },
+                    { name: '丁家庄', transferLines: [], duration: 3 },
+                    { name: '万寿', transferLines: [], duration: 3 },
+                    { name: '晓庄', transferLines: ['1号线'], duration: 2 },
+                    { name: '幕府山', transferLines: [], duration: 3 },
+                    { name: '五塘广场', transferLines: ['3号线'], duration: 3 },
+                    { name: '幕府西路', transferLines: [], duration: 2 },
+                    { name: '钟阜路', transferLines: [], duration: 3 },
+                    { name: '福建路', transferLines: ['5号线'], duration: 2 },
+                    { name: '古平岗', transferLines: [], duration: 3 },
+                    { name: '草场门・南艺・二师', transferLines: ['4号线'], duration: 2 },
+                    { name: '清凉山', transferLines: [], duration: 3 },
+                    { name: '莫愁湖', transferLines: ['2号线'], duration: 2 },
+                    { name: '大士茶亭', transferLines: [], duration: 2 },
+                    { name: '南湖', transferLines: [], duration: 1 },
+                    { name: '应天大街', transferLines: [], duration: 2 },
+                    { name: '梦都大街东', transferLines: [], duration: 3 },
+                    { name: '新城科技园', transferLines: [], duration: 3 },
+                    { name: '中胜', transferLines: ['10号线'], duration: 2 },
+                    { name: '嘉陵江东街', transferLines: [], duration: 2 },
+                    { name: '永初路', transferLines: ['S3号线'], duration: 3 },
+                    { name: '太清路', transferLines: [], duration: 2 },
+                    { name: '螺塘路', transferLines: ['2号线'], duration: 2 },
+                    { name: '西善桥', transferLines: [], duration: 3 }
+                ]
+            },
+            {
+                lineCode: '10号线',
+                lineName: '10号线',
+                lineColor: lineColorMap['10号线'],
+                stations: [
+                    { name: '雨山路', transferLines: [] },
+                    { name: '文德路', transferLines: [], duration: 2 },
+                    { name: '龙华路', transferLines: [], duration: 2 },
+                    { name: '南京工业大学', transferLines: [], duration: 3 },
+                    { name: '浦口万汇城', transferLines: [], duration: 2 },
+                    { name: '临江・青奥体育公园', transferLines: [], duration: 2 },
+                    { name: '江心洲', transferLines: [], duration: 6 },
+                    { name: '绿博园', transferLines: [], duration: 2 },
+                    { name: '梦都大街', transferLines: [], duration: 3 },
+                    { name: '奥体中心', transferLines: [], duration: 2 },
+                    { name: '元通', transferLines: ['2号线'], duration: 3 },
+                    { name: '中胜', transferLines: ['7号线'], duration: 3 },
+                    { name: '小行', transferLines: [], duration: 2 },
+                    { name: '安德门', transferLines: ['1号线'], duration: 6 },
+                    { name: '共青团路', transferLines: [], duration: 2 },
+                    { name: '雨花台', transferLines: [], duration: 2 },
+                    { name: '卡子门', transferLines: ['3号线'], duration: 3 },
+                    { name: '机场跑道旧址', transferLines: [], duration: 3 },
+                    { name: '大校场', transferLines: ['5号线'], duration: 2 },
+                    { name: '承天大道', transferLines: [], duration: 2 },
+                    { name: '高桥门', transferLines: [], duration: 2 },
+                    { name: '杨庄', transferLines: [], duration: 3 },
+                    { name: '石杨路', transferLines: [], duration: 3 },
+                    { name: '东麒路', transferLines: [], duration: 2 }
+                ]
+            },
+            {
+                lineCode: 'S1号线',
+                lineName: 'S1号线',
+                lineColor: lineColorMap['S1号线'],
+                stations: [
+                    { name: '南京南站', transferLines: ['1号线', '3号线', 'S3号线'] },
+                    { name: '翠屏山', transferLines: [], duration: 5 },
+                    { name: '河海大学・佛城西路', transferLines: [], duration: 4 },
+                    { name: '吉印大道', transferLines: ['5号线'], duration: 3 },
+                    { name: '正方中路', transferLines: [], duration: 5 },
+                    { name: '翔宇路北', transferLines: [], duration: 7 },
+                    { name: '翔宇路南', transferLines: ['S9号线'], duration: 5 },
+                    { name: '禄口机场', transferLines: [], duration: 7 },
+                    { name: '空港新城江宁', transferLines: ['S7号线'], duration: 3 }
+                ]
+            },
+            {
+                lineCode: 'S3号线',
+                lineName: 'S3号线',
+                lineColor: lineColorMap['S3号线'],
+                stations: [
+                    { name: '高家冲', transferLines: [] },
+                    { name: '林山', transferLines: [], duration: 2 },
+                    { name: '桥林新城', transferLines: [], duration: 3 },
+                    { name: '石碛河', transferLines: [], duration: 2 },
+                    { name: '双垅', transferLines: [], duration: 2 },
+                    { name: '兰花塘', transferLines: [], duration: 2 },
+                    { name: '马骡圩', transferLines: [], duration: 3 },
+                    { name: '刘村', transferLines: [], duration: 9 },
+                    { name: '天保', transferLines: [], duration: 3 },
+                    { name: '高庙路', transferLines: [], duration: 3 },
+                    { name: '吴侯街', transferLines: [], duration: 2 },
+                    { name: '平良大街', transferLines: [], duration: 1 },
+                    { name: '永初路', transferLines: ['7号线'], duration: 2 },
+                    { name: '油坊桥', transferLines: ['2号线'], duration: 3 },
+                    { name: '贾西', transferLines: [], duration: 2 },
+                    { name: '春江路', transferLines: [], duration: 2 },
+                    { name: '铁心桥', transferLines: [], duration: 3 },
+                    { name: '景明佳园', transferLines: [], duration: 2 },
+                    { name: '南京南站', transferLines: ['1号线', '3号线', 'S1号线'], duration: 2 }
+                ]
+            },
+            {
+                lineCode: 'S6号线',
+                lineName: 'S6号线',
+                lineColor: lineColorMap['S6号线'],
+                stations: [
+                    { name: '马群', transferLines: ['2号线'] },
+                    { name: '百水桥', transferLines: [], duration: 2 },
+                    { name: '麒麟门', transferLines: [], duration: 2 },
+                    { name: '东郊小镇', transferLines: [], duration: 3 },
+                    { name: '古泉', transferLines: [], duration: 5 },
+                    { name: '南京猿人洞', transferLines: [], duration: 3 },
+                    { name: '汤山', transferLines: [], duration: 4 },
+                    { name: '泉都大街', transferLines: [], duration: 2 },
+                    { name: '黄梅', transferLines: [], duration: 6 },
+                    { name: '童世界', transferLines: [], duration: 4 },
+                    { name: '华阳', transferLines: [], duration: 3 },
+                    { name: '崇明', transferLines: [], duration: 4 },
+                    { name: '句容', transferLines: [], duration: 2 }
+                ]
+            },
+            {
+                lineCode: 'S7号线',
+                lineName: 'S7号线',
+                lineColor: lineColorMap['S7号线'],
+                stations: [
+                    { name: '空港新城江宁', transferLines: ['S1号线'] },
+                    { name: '柘塘', transferLines: [], duration: 5 },
+                    { name: '空港新城溧水', transferLines: [], duration: 5 },
+                    { name: '群力', transferLines: [], duration: 4 },
+                    { name: '卧龙湖', transferLines: [], duration: 5 },
+                    { name: '溧水', transferLines: [], duration: 3 },
+                    { name: '中山湖', transferLines: [], duration: 3 },
+                    { name: '幸庄', transferLines: [], duration: 3 },
+                    { name: '无想山', transferLines: [], duration: 2 }
+                ]
+            },
+            {
+                lineCode: 'S8号线',
+                lineName: 'S8号线',
+                lineColor: lineColorMap['S8号线'],
+                stations: [
+                    { name: '金牛湖', transferLines: [] },
+                    { name: '八百桥', transferLines: [], duration: 4 },
+                    { name: '沈桥', transferLines: [], duration: 5 },
+                    { name: '方州广场', transferLines: [], duration: 6 },
+                    { name: '凤凰山公园', transferLines: [], duration: 2 },
+                    { name: '雄州', transferLines: [], duration: 3 },
+                    { name: '龙池', transferLines: [], duration: 3 },
+                    { name: '六合开发区', transferLines: [], duration: 3 },
+                    { name: '化工园', transferLines: [], duration: 3 },
+                    { name: '长芦', transferLines: [], duration: 2 },
+                    { name: '葛塘', transferLines: [], duration: 4 },
+                    { name: '大厂', transferLines: [], duration: 3 },
+                    { name: '卸甲甸', transferLines: [], duration: 3 },
+                    { name: '信息工程大学', transferLines: [], duration: 2 },
+                    { name: '高新开发区', transferLines: [], duration: 4 },
+                    { name: '泰冯路', transferLines: ['3号线'], duration: 4 },
+                    { name: '泰山新村', transferLines: [], duration: 2 },
+                    { name: '毛纺厂路', transferLines: [], duration: 2 },
+                    { name: '长江大桥北', transferLines: [], duration: 1 }
+                ]
+            },
+            {
+                lineCode: 'S9号线',
+                lineName: 'S9号线',
+                lineColor: lineColorMap['S9号线'],
+                stations: [
+                    { name: '翔宇路南', transferLines: ['S1号线'] },
+                    { name: '铜山', transferLines: [], duration: 7 },
+                    { name: '石湫', transferLines: [], duration: 6 },
+                    { name: '明觉', transferLines: [], duration: 8 },
+                    { name: '团结圩', transferLines: [], duration: 14 },
+                    { name: '高淳', transferLines: [], duration: 4 }
+                ]
+            }
+        ];
+        // 全线路首末班时刻表数据
+        // Full timetable data (includes major/minor routes)
+        const timetableData = {"1号线":{"stations":["八卦洲大桥南","笆斗山","燕子矶","吉祥庵","晓庄","迈皋桥","红山动物园","南京站","新模范马路","玄武门","鼓楼","珠江路","新街口","张府园","三山街","中华门","安德门","天隆寺","软件大道","花神庙","南京南站","双龙大道","河定桥","胜太路","百家湖","小龙湾","竹山路","天印大道","龙眠大道","南医大・江苏经贸学院","南京交院","中国药科大学"],"last":{"down":{"weekday":[{"route":"往天隆寺","times":["23:24","23:26","23:28","23:30","23:32","23:35","23:37","23:39","23:42","23:44","23:46","23:48","23:50","23:52","23:54","23:57","00:00",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null]},{"route":"往中国药科大学","times":["23:08","23:10","23:12","23:14","23:16","23:19","23:21","23:23","23:26","23:28","23:30","23:32","23:34","23:36","23:38","23:41","23:44","23:47","23:49","23:51","23:54","23:57","23:59","00:01","00:03","00:06","00:08","00:11","00:13","00:16","00:19",null]}],"weekend":[{"route":"往中国药科大学","times":["23:30","23:32","23:34","23:36","23:38","23:41","23:43","23:45","23:48","23:50","23:52","23:54","23:56","23:58","00:00","00:03","00:06","00:09","00:11","00:13","00:16","00:19","00:21","00:23","00:25","00:28","00:30","00:33","00:35","00:38","00:41",null]}],"all":[]},"up":{"weekday":[{"route":"往八卦洲大桥南","times":[null,"00:40","00:38","00:36","00:34","00:31","00:29","00:27","00:24","00:22","00:20","00:18","00:16","00:13","00:11","00:09","00:05","00:02","00:00","23:58","23:55","23:52","23:49","23:48","23:45","23:43","23:41","23:38","23:36","23:33","23:29","23:27"]}],"weekend":[{"route":"往八卦洲大桥南","times":[null,"00:43","00:41","00:39","00:37","00:34","00:32","00:30","00:27","00:25","00:23","00:21","00:19","00:16","00:14","00:12","00:08","00:05","00:03","00:01","23:58","23:55","23:52","23:51","23:48","23:46","23:44","23:41","23:39","23:36","23:32","23:30"]}],"all":[]}},"first":{"down":[{"route":"??","times":["05:30","05:32","05:34","05:36","05:38","05:41","05:43","05:46","05:48","05:50","05:53","05:54","05:57","05:59","06:01","06:04","06:07","06:10","06:12","06:14","06:17","06:20","06:22","06:24","06:26","06:29","06:31","06:33","06:36","06:38","06:42",null],"dayType":"all"}],"up":[{"route":"??","times":[null,"07:01","06:59","06:57","06:55","06:52","06:49","06:47","06:44","06:42","06:40","06:38","06:36","06:33","06:32","06:29","06:25","06:22","06:20","06:18","06:15","06:12","06:09","06:08","06:05","06:03","06:01","05:58","05:56","05:53","05:49","05:47"],"dayType":"all"}]}},"2号线":{"stations":["经天路","南大仙林校区","羊山公园","仙林中心","学则路","仙鹤门","金马路","马群","钟灵街","孝陵卫","下马坊","苜蓿园","明故宫","西安门","大行宫","新街口","上海路","汉中门","莫愁湖","云锦路","集庆门大街","兴隆大街","奥体东","元通","雨润大街","油坊桥","螺塘路","青莲街","天保街","鱼嘴"],"last":{"down":{"weekday":[{"route":"往鱼嘴","times":["23:00","23:02","23:04","23:06","23:09","23:11","23:13","23:17","23:21","23:23","23:25","23:27","23:29","23:31","23:33","23:36","23:37","23:39","23:41","23:43","23:46","23:49","23:51","23:53","23:55","23:59","00:02","00:04","00:06",null]}],"weekend":[{"route":"往鱼嘴","times":["23:30","23:32","23:34","23:36","23:39","23:41","23:43","23:47","23:51","23:53","23:55","23:57","23:59","00:01","00:03","00:06","00:07","00:09","00:11","00:13","00:16","00:19","00:21","00:23","00:25","00:29","00:32","00:34","00:36",null]}],"all":[]},"up":{"weekday":[{"route":"往经天路","times":[null,"00:07","00:04","00:02","00:00","23:58","23:55","23:52","23:48","23:46","23:44","23:42","23:40","23:37","23:35","23:33","23:32","23:30","23:28","23:25","23:22","23:20","23:18","23:16","23:13","23:10","23:06","23:04","23:02","23:00"]}],"weekend":[{"route":"往经天路","times":[null,"00:37","00:34","00:32","00:30","00:28","00:25","00:22","00:18","00:16","00:14","00:12","00:10","00:07","00:05","00:03","00:02","00:00","23:58","23:55","23:52","23:50","23:48","23:46","23:43","23:40","23:36","23:34","23:32","23:30"]}],"all":[]}},"first":{"down":[{"route":"??","times":["06:00","06:02","06:04","06:06","06:09","06:11","06:13","06:00","06:03","06:05","06:07","06:00","06:02","06:04","06:06","06:08","06:00","06:01","06:03","06:06","06:00","06:02","06:04","06:06","06:09","06:12","06:16","06:17","06:19",null],"dayType":"all"}],"up":[{"route":"??","times":[null,"06:15","06:12","06:10","06:08","06:06","06:03","06:00","06:25","06:23","06:21","06:19","06:17","06:15","06:13","06:11","06:09","06:07","06:05","06:02","06:00","06:10","06:08","06:06","06:03","06:00","06:05","06:03","06:01","06:00"],"dayType":"all"}]}},"3号线":{"stations":["秣陵","上秦淮西","秣周东路","东大九龙湖校区","诚信大道","九龙湖","天元西路","胜太西路","宏运大道","南京南站","明发广场","大明路","卡子门","雨花门","武定门","夫子庙","常府街","大行宫","浮桥","鸡鸣寺","南京林业大学・新庄","南京站","小市","五塘广场","上元门","柳州东路","天润城","泰冯路","东大成贤学院","星火路","林场"],"last":{"down":{"weekday":[{"route":"往秣陵","times":["23:05","23:06","23:10","23:13","23:16","23:18","23:21","23:24","23:27","23:29","23:31","23:34","23:36","23:38","23:40","23:43","23:45","23:47","23:49","23:52","23:55","23:59","00:01","00:04","00:06","00:10","00:13","00:16","00:18","00:20",null]}],"weekend":[{"route":"往秣陵","times":["23:25","23:26","23:30","23:33","23:36","23:38","23:41","23:44","23:47","23:49","23:51","23:54","23:56","23:58","00:00","00:03","00:05","00:07","00:09","00:12","00:15","00:19","00:21","00:24","00:26","00:30","00:33","00:36","00:38","00:40",null]}],"all":[]},"up":{"weekday":[{"route":"往林场","times":[null,"00:17","00:14","00:10","00:08","00:05","00:02","23:59","23:56","23:54","23:52","23:50","23:47","23:45","23:43","23:40","23:38","23:36","23:34","23:32","23:28","23:25","23:23","23:20","23:18","23:14","23:11","23:08","23:06","23:04","23:00"]}],"weekend":[{"route":"往林场","times":[null,"00:47","00:44","00:40","00:38","00:35","00:32","00:29","00:26","00:24","00:22","00:20","00:17","00:15","00:13","00:10","00:08","00:06","00:04","00:02","23:58","23:55","23:53","23:50","23:48","23:44","23:41","23:38","23:36","23:34","23:30"]}],"all":[]}},"first":{"down":[{"route":"??","times":["05:35","05:36","05:40","05:43","05:46","05:48","05:51","05:54","05:57","06:00","06:02","06:04","06:06","06:08","06:10","06:13","06:15","06:00","06:01","06:04","06:07","06:00","06:02","06:05","06:07","06:11","06:14","06:17","06:19","06:21",null],"dayType":"all"}],"up":[{"route":"??","times":[null,"06:27","06:24","06:20","06:18","06:15","06:12","06:09","06:06","06:04","06:02","06:00","06:11","06:09","06:07","06:04","06:02","06:00","06:08","06:06","06:03","06:00","06:13","06:10","06:08","06:04","06:01","05:58","05:56","05:54","05:50"],"dayType":"all"}]}},"4号线":{"stations":["仙林湖","西岗桦墅","孟北","东流","灵山","汇通路","金马路","徐庄・苏宁总部","聚宝山","王家湾","蒋王庙","岗子村","九华山","鸡鸣寺","鼓楼","云南路","草场门・南艺・二师","龙江"],"last":{"down":{"weekday":[],"weekend":[],"all":[{"route":"往龙江","times":["23:00","23:03","23:06","23:09","23:12","23:14","23:17","23:22","23:25","23:28","23:30","23:33","23:35","23:37","23:39","23:41","23:44",null]}]},"up":{"weekday":[{"route":"往仙林湖","times":[null,"23:42","23:39","23:36","23:34","23:32","23:28","23:24","23:21","23:18","23:16","23:13","23:11","23:09","23:06","23:04","23:02","23:00"]}],"weekend":[{"route":"往仙林湖","times":[null,"00:12","00:09","00:06","00:04","00:02","23:58","23:54","23:51","23:48","23:46","23:43","23:41","23:39","23:36","23:34","23:32","23:30"]}],"all":[]}},"first":{"down":[{"route":"??","times":["06:00","06:03","06:06","06:09","06:12","06:14","06:17","06:22","06:25","06:28","06:30","06:33","06:35","06:37","06:40","06:42","06:44",null],"dayType":"all"}],"up":[{"route":"??","times":[null,"06:42","06:40","06:37","06:34","06:32","06:29","06:25","06:21","06:18","06:16","06:13","06:11","06:09","06:06","06:04","06:02","06:00"],"dayType":"all"}]}},"5号线":{"stations":["方家营","南京西站","静海寺","下关","盐仓桥","福建路","虹桥","青春广场","云南路","五台山","上海路","朝天宫","三山街","夫子庙","通济门","光华门","石门坎","七桥瓮","大校场","神机营","东山香樟园","文靖路","东山","新亭路","竹山路","科宁路","前庄","诚信大道","九龙湖南","吉印大道"],"last":{"down":{"weekday":[{"route":"往吉印大道","times":["23:00","23:01","23:03","23:05","23:07","23:09","23:10","23:12","23:14","23:16","23:18","23:20","23:23","23:25","23:27","23:29","23:32","23:34","23:36","23:38","23:41","23:44","23:45","23:47","23:49","23:51","23:55","23:57","00:01",null]}],"weekend":[{"route":"往吉印大道","times":["23:30","23:31","23:33","23:35","23:37","23:39","23:40","23:42","23:44","23:46","23:48","23:50","23:53","23:55","23:57","23:59","00:02","00:04","00:06","00:08","00:11","00:14","00:15","00:17","00:19","00:21","00:25","00:27","00:31",null]}],"all":[]},"up":{"weekday":[{"route":"往方家营","times":[null,"00:02","00:00","23:59","23:57","23:55","23:53","23:51","23:49","23:47","23:45","23:43","23:40","23:38","23:36","23:34","23:31","23:29","23:27","23:25","23:21","23:19","23:18","23:16","23:14","23:12","23:08","23:06","23:02","23:00"]}],"weekend":[{"route":"往方家营","times":[null,"00:32","00:30","00:29","00:27","00:25","00:23","00:21","00:19","00:17","00:15","00:13","00:10","00:08","00:06","00:04","00:01","23:59","23:57","23:55","23:51","23:49","23:48","23:46","23:44","23:42","23:38","23:36","23:32","23:30"]}],"all":[]}},"first":{"down":[{"route":"??","times":["06:00","06:01","06:03","06:05","06:07","06:09","06:10","06:12","06:14","06:16","06:18","06:20","06:23","06:25","06:27","06:29","06:32","06:34","06:36","06:38","06:41","06:00","06:01","06:03","06:05","06:07","06:11","06:13","06:17",null],"dayType":"all"}],"up":[{"route":"??","times":[null,"06:36","06:35","06:33","06:31","06:29","06:27","06:25","06:23","06:21","06:19","06:17","06:14","06:13","06:10","06:08","06:05","06:04","06:02","06:00","06:21","06:19","06:18","06:16","06:14","06:12","06:08","06:06","06:02","06:00"],"dayType":"all"}]}},"7号线":{"stations":["仙新路","尧化门","尧化新村","丁家庄南","丁家庄","万寿","晓庄","幕府山","五塘广场","幕府西路","钟阜路","福建路","古平岗","草场门・南艺・二师","清凉山","莫愁湖","大士茶亭","南湖","应天大街","梦都大街东","新城科技园","中胜","嘉陵江东街","永初路","太清路","螺塘路","西善桥"],"last":{"down":{"weekday":[{"route":"往西善桥","times":["23:00","23:01","23:04","23:06","23:09","23:12","23:14","23:17","23:20","23:22","23:25","23:27","23:30","23:32","23:35","23:37","23:39","23:40","23:42","23:45","23:48","23:50","23:52","23:55","23:57","23:59",null]}],"weekend":[{"route":"往西善桥","times":["23:30","23:31","23:34","23:36","23:39","23:42","23:44","23:47","23:50","23:52","23:55","23:57","00:00","00:02","00:05","00:07","00:09","00:10","00:12","00:15","00:18","00:20","00:22","00:25","00:27","00:29",null]}],"all":[]},"up":{"weekday":[{"route":"往仙新路","times":[null,"23:59","23:57","23:54","23:52","23:49","23:47","23:44","23:41","23:39","23:36","23:34","23:31","23:29","23:26","23:24","23:22","23:20","23:18","23:16","23:14","23:12","23:09","23:07","23:04","23:03","23:00"]}],"weekend":[{"route":"往仙新路","times":[null,"00:29","00:27","00:24","00:22","00:19","00:17","00:14","00:11","00:09","00:06","00:04","00:01","23:59","23:56","23:54","23:52","23:50","23:48","23:46","23:44","23:42","23:39","23:37","23:34","23:33","23:30"]}],"all":[]}},"first":{"down":[{"route":"??","times":["06:00","06:01","06:04","06:06","06:09","06:12","06:14","06:17","06:20","06:22","06:25","06:27","06:30","06:32","06:35","06:37","06:39","06:40","06:00","06:03","06:05","06:07","06:09","06:12","06:14","06:16",null],"dayType":"all"}],"up":[{"route":"??","times":[null,"06:20","06:18","06:15","06:13","06:10","06:08","06:05","06:02","06:00","06:36","06:34","06:31","06:29","06:26","06:24","06:22","06:20","06:18","06:16","06:14","06:12","06:09","06:07","06:04","06:03","06:00"],"dayType":"all"}]}},"10号线":{"stations":["雨山路","文德路","龙华路","南京工业大学","浦口万汇城","临江・青奥体育公园","江心洲","绿博园","梦都大街","奥体中心","元通","中胜","小行","安德门","共青团路","雨花台","卡子门","机场跑道旧址","大校场","承天大道","高桥门","杨庄","石杨路","东麒路"],"last":{"down":{"weekday":[],"weekend":[],"all":[{"route":"往东麒路","times":["23:00","23:02","23:04","23:07","23:09","23:11","23:17","23:19","23:22","23:24","23:27","23:30","23:32","23:38","23:40","23:42","23:45","23:48","23:50","23:52","23:54","23:57","00:00",null]}]},"up":{"weekday":[],"weekend":[],"all":[{"route":"往雨山路","times":[null,"00:13","00:11","00:09","00:07","00:05","23:59","23:57","23:54","23:52","23:49","23:46","23:44","23:40","23:37","23:35","23:32","23:29","23:27","23:25","23:23","23:19","23:17","23:15"]}]}},"first":{"down":[{"route":"??","times":["05:40","05:42","05:44","05:47","05:49","05:51","05:57","05:59","06:02","06:04","06:07","06:10","06:12","06:18","06:20","06:22","06:25","06:28","06:30","06:32","06:34","06:37","06:40",null],"dayType":"all"}],"up":[{"route":"??","times":[null,"06:33","06:31","06:29","06:27","06:25","06:19","06:17","06:14","06:12","06:09","06:06","06:04","06:00","06:21","06:19","06:17","06:14","06:12","06:10","06:07","06:04","06:02","06:00"],"dayType":"all"}]}},"S1号线":{"stations":["南京南站","翠屏山","河海大学・佛城西路","吉印大道","正方中路","翔宇路北","翔宇路南","禄口机场","空港新城江宁"],"last":{"down":{"weekday":[{"route":"往空港新城江宁","times":["22:40","22:45","22:49","22:52","22:57","23:04","23:09","23:16",null]}],"weekend":[{"route":"往空港新城江宁","times":["23:00","23:05","23:09","23:12","23:17","23:24","23:29","23:36",null]}],"all":[]},"up":{"weekday":[],"weekend":[],"all":[{"route":"往南京南站","times":["23:18","23:13","23:09","23:05","23:00","22:54","22:49","22:42","22:40"]}]}},"first":{"down":[{"route":"??","times":["06:00","06:05","06:09","06:12","06:17","06:24","06:29","06:36",null],"dayType":"all"}],"up":[{"route":"??","times":["06:35","06:30","06:26","06:22","06:18","06:11","06:07","06:00","05:57"],"dayType":"all"}]}},"S3号线":{"stations":["高家冲","林山","桥林新城","石碛河","双垅","兰花塘","马骡圩","刘村","天保","高庙路","吴侯街","平良大街","永初路","油坊桥","贾西","春江路","铁心桥","景明佳园","南京南站"],"last":{"down":{"weekday":[],"weekend":[],"all":[{"route":"刘村往南京南站","times":[null,null,null,null,null,null,null,"23:00","23:03","23:05","23:07","23:09","23:11","23:13","23:15","23:18","23:20","23:22",null]},{"route":"往南京南站","times":["22:00","22:02","22:05","22:07","22:09","22:11","22:14","22:23","22:26","22:29","22:31","22:32","22:34","22:37","22:39","22:41","22:44","22:46",null]}]},"up":{"weekday":[{"route":"往刘村","times":[null,null,null,null,null,null,null,null,"23:22","23:19","23:17","23:16","23:14","23:12","23:09","23:07","23:04","23:02","23:00"]},{"route":"往高家冲","times":[null,"22:46","22:43","22:41","22:39","22:37","22:34","22:25","22:22","22:19","22:17","22:16","22:14","22:12","22:09","22:07","22:04","22:02","22:00"]}],"weekend":[{"route":"往高家冲","times":[null,"23:46","23:43","23:41","23:39","23:37","23:34","23:25","23:22","23:19","23:17","23:16","23:14","23:12","23:09","23:07","23:04","23:02","23:00"]}],"all":[]}},"first":{"down":[{"route":"??","times":["06:00","06:02","06:05","06:07","06:09","06:11","06:14","06:23","06:26","06:29","06:31","06:32","06:34","06:37","06:39","06:41","06:44","06:46",null],"dayType":"all"}],"up":[{"route":"??","times":[null,"06:46","06:43","06:41","06:39","06:37","06:34","06:25","06:22","06:19","06:17","06:16","06:14","06:12","06:09","06:07","06:04","06:02","06:00"],"dayType":"all"}]}},"S6号线":{"stations":["句容","崇明","华阳","童世界","黄梅","泉都大街","汤山","南京猿人洞","古泉","东郊小镇","麒麟门","百水桥","马群"],"last":{"down":{"weekday":[],"weekend":[],"all":[{"route":"往马群","times":["22:05","22:07","22:11","22:14","22:18","22:24","22:26","22:30","22:33","22:38","22:41","22:43",null]}]},"up":{"weekday":[],"weekend":[],"all":[{"route":"往句容","times":[null,"23:38","23:35","23:32","23:27","23:22","23:19","23:16","23:12","23:08","23:04","23:02","23:00"]}]}},"first":{"down":[{"route":"往马群","times":["06:00","06:02","06:06","06:09","06:13","06:19","06:21","06:25","06:28","06:33","06:36","06:38",null],"dayType":"all"}],"up":[{"route":"往句容","times":[null,"06:38","06:35","06:32","06:27","06:22","06:19","06:16","06:12","06:08","06:04","06:02","06:00"],"dayType":"all"}]}},"S7号线":{"stations":["空港新城江宁","柘塘","空港新城溧水","群力","卧龙湖","溧水","中山湖","幸庄","无想山"],"last":{"down":{"weekday":[{"route":"往无想山","times":["22:00","22:05","22:10","22:14","22:19","22:22","22:25","22:28",null]}],"weekend":[{"route":"往无想山","times":["22:30","22:35","22:40","22:44","22:49","22:52","22:55","22:58",null]}],"all":[]},"up":{"weekday":[],"weekend":[],"all":[{"route":"往空港新城江宁","times":[null,"22:27","22:21","22:17","22:11","22:08","22:05","22:02","22:00"]}]}},"first":{"down":[{"route":"往无想山","times":["06:00","06:05","06:10","06:14","06:19","06:22","06:25","06:28",null],"dayType":"all"}],"up":[{"route":"往空港新城江宁","times":[null,"06:27","06:21","06:17","06:11","06:08","06:05","06:02","06:00"],"dayType":"all"}]}},"S8号线":{"stations":["金牛湖","八百桥","沈桥","方州广场","凤凰山公园","雄州","龙池","六合开发区","化工园","长芦","葛塘","大厂","卸甲甸","信息工程大学","高新开发区","泰冯路","泰山新村","毛纺厂路","长江大桥北"],"last":{"down":{"weekday":[],"weekend":[],"all":[{"route":"往长江大桥北","times":["22:00","22:04","22:09","22:15","22:17","22:20","22:23","22:26","22:29","22:31","22:35","22:38","22:41","22:43","22:47","22:51","22:53","22:55",null]}]},"up":{"weekday":[{"route":"往方州广场","times":[null,null,null,null,"23:20","23:17","23:14","23:11","23:08","23:06","23:02","22:59","22:56","22:54","22:50","22:47","22:44","22:41","22:40"]}],"weekend":[{"route":"往方州广场","times":[null,null,null,null,"23:40","23:37","23:34","23:31","23:28","23:26","23:22","23:19","23:16","23:14","23:10","23:07","23:04","23:01","23:00"]}],"all":[{"route":"往金牛湖","times":[null,"23:12","23:08","23:02","23:00","22:57","22:54","22:51","22:48","06:46","22:42","22:39","22:36","22:34","22:30","22:27","22:24","22:21","22:20"]}]}},"first":{"down":[{"route":"往长江大桥北","times":["06:00","06:04","06:09","06:15","06:17","06:20","06:23","06:26","06:29","06:31","06:35","06:38","06:41","06:43","06:47","06:51","06:53","06:55",null],"dayType":"all"}],"up":[{"route":"往金牛湖","times":[null,"06:48","06:43","06:38","06:35","06:33","06:29","06:27","06:24","06:21","06:17","06:14","06:12","06:09","06:06","06:02","06:00","05:57","05:55"],"dayType":"all"}]}},"S9号线":{"stations":["翔宇路南","铜山","石湫","明觉","团结圩","高淳"],"last":{"down":{"weekday":[{"route":"往高淳","times":["22:00","22:07","22:13","22:21","22:35",null]}],"weekend":[{"route":"往高淳","times":["22:30","22:37","22:43","22:51","23:05",null]}],"all":[]},"up":{"weekday":[],"weekend":[],"all":[{"route":"往翔宇路南","times":[null,"22:32","22:27","22:18","22:04","22:00"]}]}},"first":{"down":[{"route":"??","times":["06:00","06:07","06:13","06:21","06:35",null],"dayType":"all"}],"up":[{"route":"??","times":[null,"06:32","06:27","06:18","06:04","06:00"],"dayType":"all"}]}}};
+
+        const homeView = document.getElementById('homeView');
+        const resultView = document.getElementById('resultView');
+        const homeStartBtn = document.getElementById('homeStartBtn');
+        const homeEndBtn = document.getElementById('homeEndBtn');
+        const resultStartBtn = document.getElementById('resultStartBtn');
+        const resultEndBtn = document.getElementById('resultEndBtn');
+        const homeSwapBtn = document.getElementById('homeSwapBtn');
+        const resultSwapBtn = document.getElementById('resultSwapBtn');
+        const resultCards = document.getElementById('resultCards');
+        const overlay = document.getElementById('overlay');
+        const picker = document.getElementById('picker');
+        const lineList = document.getElementById('lineList');
+        const stationList = document.getElementById('stationList');
+        const stationSearch = document.getElementById('stationSearch');
+        const clearSearch = document.getElementById('clearSearch');
+
+        // 全局变量
+        let currentTarget = 'start';
+        let currentActiveLine = metroData[0];
+        const selection = { start: null, end: null };
+        let hasHeaderMovedToTop = false;
+        let cardsSwapTimer = null;
+        let arriveClockTimer = null;
+
+        // ===================== 3. 辅助工具函数 =====================
+        // 时间字符串转分钟数（支持00:xx跨天）
+        function timeToMinutes(timeStr) {
+            if (!timeStr) return null;
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            const isNextDay = hours < 4 || (hours === 4 && minutes === 0);
+            return hours * 60 + minutes + (isNextDay ? 1440 : 0); // 0-4点算次日，加1440分钟
+        }
+
+        // 分钟数转时间字符串
+        function minutesToTime(minutes) {
+            if (minutes === null || minutes === Infinity) return null;
+            const totalMinutes = minutes % 1440;
+            const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+            const mins = String(totalMinutes % 60).padStart(2, '0');
+            return `${hours}:${mins}`;
+        }
+
+        // 获取线路的站点数组
+        function getLineStations(lineName) {
+            const line = metroData.find(item => item.lineName === lineName);
+            return line ? line.stations.map(s => s.name) : [];
+        }
+
+        // 获取两个站点之间的区间时长总和
+        function getSegmentDuration(lineName, startStation, endStation) {
+            const line = metroData.find(item => item.lineName === lineName);
+            if (!line) return 0;
+            const stations = line.stations;
+            const startIdx = stations.findIndex(s => s.name === startStation);
+            const endIdx = stations.findIndex(s => s.name === endStation);
+            if (startIdx === -1 || endIdx === -1) return 0;
+
+            let duration = 0;
+            if (startIdx === endIdx) return 0;
+            if (startIdx < endIdx) {
+                // 下行，累加区间时长
+                for (let i = startIdx + 1; i <= endIdx; i++) {
+                    duration += stations[i].duration || 0;
+                }
+            } else {
+                // 上行，累加区间时长
+                for (let i = startIdx; i > endIdx; i--) {
+                    duration += stations[i].duration || 0;
+                }
+            }
+            return duration;
+        }
+
+        // 获取线路行驶方向（up/down）
+        function getDirection(lineName, startStation, endStation) {
+            const stations = getLineStations(lineName);
+            const startIdx = stations.indexOf(startStation);
+            const endIdx = stations.indexOf(endStation);
+            if (startIdx === -1 || endIdx === -1) return null;
+            if (startIdx === endIdx) return null;
+            return startIdx < endIdx ? 'down' : 'up';
+        }
+
+        // 时刻表查询：按上/下行 + 日期类型 + 交路筛选
+        function getTimetableStations(lineName) {
+            const lineData = timetableData[lineName];
+            if (lineData && Array.isArray(lineData.stations)) return lineData.stations;
+            return getLineStations(lineName);
+        }
+
+        function getTimetableStationIndex(lineName, stationName) {
+            return getTimetableStations(lineName).indexOf(stationName);
+        }
+
+        function mapDirectionToTimetable(lineName, direction) {
+            const line = metroData.find(item => item.lineName === lineName);
+            const timetableStations = getTimetableStations(lineName);
+            if (!line || !Array.isArray(timetableStations) || timetableStations.length === 0) {
+                return direction;
+            }
+
+            const metroStations = line.stations.map(st => st.name);
+            if (metroStations.length === 0) return direction;
+
+            const metroFirst = metroStations[0];
+            const metroLast = metroStations[metroStations.length - 1];
+            const ttFirst = timetableStations[0];
+            const ttLast = timetableStations[timetableStations.length - 1];
+
+            const sameOrder = metroFirst === ttFirst && metroLast === ttLast;
+            const reverseOrder = metroFirst === ttLast && metroLast === ttFirst;
+
+            if (!reverseOrder || sameOrder) return direction;
+            return direction === 'down' ? 'up' : 'down';
+        }
+
+        function getLastRouteList(lineName, direction, dayType) {
+            const timetableDirection = mapDirectionToTimetable(lineName, direction);
+            const lineData = timetableData[lineName];
+            if (!lineData || !lineData.last || !lineData.last[timetableDirection]) return [];
+            const dayRoutes = Array.isArray(lineData.last[timetableDirection][dayType]) ? lineData.last[timetableDirection][dayType] : [];
+            const allRoutes = Array.isArray(lineData.last[timetableDirection].all) ? lineData.last[timetableDirection].all : [];
+            return [...dayRoutes, ...allRoutes];
+        }
+
+        function getLastTrainTime(lineName, stationName, direction, dayType) {
+            const routes = getLastRouteList(lineName, direction, dayType);
+            if (routes.length === 0) return null;
+            const stationIndex = getTimetableStationIndex(lineName, stationName);
+            if (stationIndex === -1) return null;
+
+            let latest = null;
+            routes.forEach(route => {
+                const timeStr = route.times[stationIndex];
+                if (!timeStr) return;
+                const time = timeToMinutes(timeStr);
+                if (time === null) return;
+                if (latest === null || time > latest.time) {
+                    latest = { time, timeStr };
+                }
+            });
+            return latest ? latest.timeStr : null;
+        }
+
+        function getRouteTerminalIndex(routeTimes, step) {
+            const available = [];
+            routeTimes.forEach((time, index) => {
+                if (time) available.push(index);
+            });
+            if (available.length === 0) return null;
+
+            if (step === 1) {
+                const maxIndex = available[available.length - 1];
+                const nextIndex = maxIndex + 1;
+                if (nextIndex < routeTimes.length && !routeTimes[nextIndex]) return nextIndex;
+                return maxIndex;
+            }
+
+            const minIndex = available[0];
+            const prevIndex = minIndex - 1;
+            if (prevIndex >= 0 && !routeTimes[prevIndex]) return prevIndex;
+            return minIndex;
+        }
+
+        function routeCoversSegment(routeTimes, startIndex, endIndex, direction, stationCount) {
+            if (!Array.isArray(routeTimes)) return false;
+            if (startIndex === -1 || endIndex === -1 || startIndex === endIndex) return false;
+
+            const step = startIndex < endIndex ? 1 : -1;
+            const routeTerminalIndex = getRouteTerminalIndex(routeTimes, step);
+            for (let i = startIndex; ; i += step) {
+                if (!routeTimes[i]) {
+                    const isTerminalEnd = i === endIndex && routeTerminalIndex === endIndex;
+                    if (!isTerminalEnd) return false;
+                }
+                if (i === endIndex) break;
+            }
+            return true;
+        }
+
+        function getSegmentLatestOption(lineName, startStation, endStation, direction, dayType, latestEndLimit = Infinity) {
+            const routes = getLastRouteList(lineName, direction, dayType);
+            if (routes.length === 0) return null;
+            const stationCount = getTimetableStations(lineName).length;
+            const startIndex = getTimetableStationIndex(lineName, startStation);
+            const endIndex = getTimetableStationIndex(lineName, endStation);
+            if (startIndex === -1 || endIndex === -1) return null;
+            const segmentDuration = getSegmentDuration(lineName, startStation, endStation);
+            if (segmentDuration <= 0) return null;
+
+            let best = null;
+            routes.forEach(route => {
+                if (!routeCoversSegment(route.times, startIndex, endIndex, direction, stationCount)) return;
+
+                const startTimeStr = route.times[startIndex];
+                if (!startTimeStr) return;
+
+                const startTime = timeToMinutes(startTimeStr);
+                if (startTime === null) return;
+
+                let endTimeStr = route.times[endIndex] || null;
+                let endTime = endTimeStr ? timeToMinutes(endTimeStr) : null;
+                if (endTime === null) {
+                    endTime = startTime + segmentDuration;
+                    endTimeStr = minutesToTime(endTime);
+                }
+                if (endTime === null) return;
+                if (endTime < startTime) {
+                    endTime += 1440;
+                }
+                if (endTime > latestEndLimit) return;
+
+                if (!best || startTime > best.startTime || (startTime === best.startTime && endTime > best.endTime)) {
+                    best = {
+                        route: route.route,
+                        startTime,
+                        endTime,
+                        startTimeStr,
+                        endTimeStr
+                    };
+                }
+            });
+
+            return best;
+        }
+
+        function getSegmentStartCap(lineName, startStation, endStation, direction, dayType) {
+            const routes = getLastRouteList(lineName, direction, dayType);
+            if (routes.length === 0) return null;
+            const stationCount = getTimetableStations(lineName).length;
+            const startIndex = getTimetableStationIndex(lineName, startStation);
+            const endIndex = getTimetableStationIndex(lineName, endStation);
+            if (startIndex === -1 || endIndex === -1) return null;
+
+            let startCap = null;
+            routes.forEach(route => {
+                if (!routeCoversSegment(route.times, startIndex, endIndex, direction, stationCount)) return;
+                const startTimeStr = route.times[startIndex];
+                if (!startTimeStr) return;
+                const startTime = timeToMinutes(startTimeStr);
+                if (startTime === null) return;
+                if (startCap === null || startTime > startCap) {
+                    startCap = startTime;
+                }
+            });
+
+            return startCap;
+        }
+
+        // ===================== 4. 图构建与最短路径算法 =====================
+        // 构建邻接表：key为"车站名_线路名"，value为相邻节点数组[{ node, weight, type }]
+        let graph = {};
+        // 车站-线路映射表
+        let stationLineMap = {};
+
+        // 初始化图结构
+        function initGraph() {
+            graph = {};
+            stationLineMap = {};
+            // 1. 构建同线路内的相邻车站边
+            metroData.forEach(line => {
+                const lineName = line.lineName;
+                const stations = line.stations;
+                stations.forEach((station, index) => {
+                    const nodeKey = `${station.name}_${lineName}`;
+                    if (!graph[nodeKey]) graph[nodeKey] = [];
+                    if (!stationLineMap[station.name]) stationLineMap[station.name] = [];
+                    if (!stationLineMap[station.name].includes(lineName)) {
+                        stationLineMap[station.name].push(lineName);
+                    }
+                    // 前一站
+                    if (index > 0) {
+                        const prevStation = stations[index-1];
+                        const prevNodeKey = `${prevStation.name}_${lineName}`;
+                        const weight = station.duration;
+                        graph[nodeKey].push({ node: prevNodeKey, weight, type: 'ride' });
+                        graph[prevNodeKey].push({ node: nodeKey, weight, type: 'ride' });
+                    }
+                });
+            });
+            // 2. 构建换乘边（同一车站不同线路之间）
+            Object.keys(stationLineMap).forEach(stationName => {
+                const lines = stationLineMap[stationName];
+                if (lines.length < 2) return;
+                // 两两线路之间添加换乘边
+                for (let i = 0; i < lines.length; i++) {
+                    for (let j = 0; j < lines.length; j++) {
+                        if (i === j) continue;
+                        const fromNode = `${stationName}_${lines[i]}`;
+                        const toNode = `${stationName}_${lines[j]}`;
+                        graph[fromNode].push({ node: toNode, weight: TRANSFER_TIME, type: 'transfer', station: stationName });
+                    }
+                }
+            });
+        }
+
+        // Dijkstra最短路径算法
+        function dijkstra(startNode, endNode) {
+            const distances = {};
+            const previous = {};
+            const visited = new Set();
+            const nodes = Object.keys(graph);
+            // 初始化距离
+            nodes.forEach(node => {
+                distances[node] = Infinity;
+                previous[node] = null;
+            });
+            distances[startNode] = 0;
+
+            while (nodes.length > 0) {
+                // 找到距离最小的未访问节点
+                nodes.sort((a, b) => distances[a] - distances[b]);
+                const currentNode = nodes.shift();
+                if (distances[currentNode] === Infinity) break;
+                if (currentNode === endNode) break;
+                if (visited.has(currentNode)) continue;
+                visited.add(currentNode);
+
+                // 遍历相邻节点
+                graph[currentNode].forEach(neighbor => {
+                    const neighborNode = neighbor.node;
+                    const newDistance = distances[currentNode] + neighbor.weight;
+                    if (newDistance < distances[neighborNode]) {
+                        distances[neighborNode] = newDistance;
+                        previous[neighborNode] = { node: currentNode, meta: neighbor };
+                    }
+                });
+            }
+
+            // 回溯路径
+            const path = [];
+            let current = endNode;
+            while (previous[current]) {
+                path.unshift(previous[current]);
+                current = previous[current].node;
+            }
+
+            return {
+                distance: distances[endNode],
+                path,
+                startNode,
+                endNode
+            };
+        }
+
+        // 解析路径为可读格式（修复同线路重复换乘BUG）
+        function parsePath(result) {
+            if (result.distance === Infinity) return null;
+            const nodes = [result.startNode];
+            result.path.forEach(step => nodes.push(step.meta.node));
+            if (nodes.length < 2) return null;
+
+            const pathSegments = [];
+            let currentLine = nodes[0].split('_')[1];
+            let currentStart = nodes[0].split('_')[0];
+            let lastStation = currentStart;
+
+            for (let i = 1; i < nodes.length; i++) {
+                const [station, line] = nodes[i].split('_');
+                if (line === currentLine) {
+                    lastStation = station;
+                } else {
+                    // 线路切换：仅在当前线路有实际行驶时才落段
+                    if (lastStation !== currentStart) {
+                        pathSegments.push({ line: currentLine, start: currentStart, end: lastStation });
+                    }
+                    currentLine = line;
+                    currentStart = station;
+                    lastStation = station;
+                }
+            }
+
+            if (lastStation !== currentStart) {
+                pathSegments.push({ line: currentLine, start: currentStart, end: lastStation });
+            }
+
+            if (pathSegments.length === 0) return null;
+            const transferStations = pathSegments.slice(0, -1).map(seg => seg.end);
+            const transferCount = transferStations.length;
+            const rideDuration = pathSegments.reduce((sum, seg) => {
+                return sum + getSegmentDuration(seg.line, seg.start, seg.end);
+            }, 0);
+
+            return {
+                totalTime: rideDuration + transferCount * TRANSFER_TIME,
+                segments: pathSegments,
+                transferCount,
+                transferStations
+            };
+        }
+
+        // 计算起点到终点的最优路径
+        function calcOptimalPath(startStation, endStation, planType) {
+            if (!stationLineMap[startStation] || !stationLineMap[endStation]) return null;
+            const startLines = stationLineMap[startStation];
+            const endLines = stationLineMap[endStation];
+            const pathMap = new Map();
+
+            // 遍历所有起终点线路组合
+            startLines.forEach(startLine => {
+                endLines.forEach(endLine => {
+                    const startNode = `${startStation}_${startLine}`;
+                    const endNode = `${endStation}_${endLine}`;
+                    const result = dijkstra(startNode, endNode);
+                    
+                    if (result.distance === Infinity) return;
+                    const parsed = parsePath(result);
+                    if (!parsed) return;
+                    const key = parsed.segments.map(seg => `${seg.line}:${seg.start}>${seg.end}`).join('|');
+                    if (!pathMap.has(key)) {
+                        pathMap.set(key, parsed);
+                    }
+                });
+            });
+
+            const allResults = Array.from(pathMap.values());
+            if (allResults.length === 0) return null;
+
+            // 按规划类型排序
+            if (planType === 'time') {
+                // 时间最快：总耗时最少>换乘次数最少
+                allResults.sort((a, b) => {
+                    if (a.totalTime !== b.totalTime) return a.totalTime - b.totalTime;
+                    return a.transferCount - b.transferCount;
+                });
+                return allResults[0];
+            } else if (planType === 'last') {
+                // 末班模式返回所有可行路径
+                return allResults;
+            }
+            return null;
+        }
+
+        // ===================== 5. 末班最晚核心逆推算法 =====================
+        // 计算单条路径的最晚起点发车时间（支持大交路+小交路）
+        function calcPathLastTime(path, dayType) {
+            const segments = path && path.segments ? path.segments : [];
+            if (segments.length === 0) return null;
+            let latestArrivalLimit = Infinity;
+
+            // 从最后一段开始逆推
+            for (let i = segments.length - 1; i >= 0; i--) {
+                const seg = segments[i];
+                const direction = getDirection(seg.line, seg.start, seg.end);
+                if (!direction) return null;
+
+                // 末段：按末班可行交路取最晚可发车时刻
+                if (i === segments.length - 1) {
+                    const option = getSegmentLatestOption(
+                        seg.line,
+                        seg.start,
+                        seg.end,
+                        direction,
+                        dayType,
+                        latestArrivalLimit
+                    );
+                    if (!option) return null;
+
+                    if (i === 0) {
+                        return option.startTime;
+                    }
+                    latestArrivalLimit = option.startTime - TRANSFER_TIME;
+                    continue;
+                }
+
+                // 前序段：按后序换乘时限反推发车时间，超出起点末班则强制取起点末班
+                const segmentDuration = getSegmentDuration(seg.line, seg.start, seg.end);
+                if (segmentDuration <= 0) return null;
+
+                const requiredArrival = latestArrivalLimit;
+                const computedStart = requiredArrival - segmentDuration;
+                const startCap = getSegmentStartCap(seg.line, seg.start, seg.end, direction, dayType);
+                if (startCap === null) return null;
+
+                const actualStart = Math.min(computedStart, startCap);
+                if (i === 0) {
+                    return actualStart;
+                }
+                latestArrivalLimit = actualStart - TRANSFER_TIME;
+            }
+            return null;
+        }
+
+        // 计算末班最晚最终结果
+        function calcLastTrainResult(startStation, endStation, allPaths) {
+            const dayTypes = [
+                { key: 'weekday', label: '周日至周四' },
+                { key: 'weekend', label: '周五至周六' }
+            ];
+            const results = {};
+
+            // 分别计算两种工作日类型
+            dayTypes.forEach(dayType => {
+                let maxTime = -Infinity;
+                allPaths.forEach(path => {
+                    const pathTime = calcPathLastTime(path, dayType.key);
+                    if (pathTime !== null && pathTime > maxTime) {
+                        maxTime = pathTime;
+                    }
+                });
+                results[dayType.key] = maxTime === -Infinity ? null : maxTime;
+            });
+
+            // 格式化展示结果
+            const weekdayTime = results.weekday;
+            const weekendTime = results.weekend;
+            let displayResult = [];
+
+            if (weekdayTime === null && weekendTime === null) {
+                displayResult.push({ label: '全周', value: '无可用末班路径' });
+            } else if (weekdayTime !== null && weekendTime !== null && weekdayTime === weekendTime) {
+                displayResult.push({ label: '全周', value: minutesToTime(weekdayTime) });
+            } else {
+                displayResult.push({
+                    label: '周日至周四',
+                    value: weekdayTime !== null ? minutesToTime(weekdayTime) : '无可用末班路径'
+                });
+                displayResult.push({
+                    label: '周五至周六',
+                    value: weekendTime !== null ? minutesToTime(weekendTime) : '无可用末班路径'
+                });
+            }
+            return displayResult;
+        }
+
+        // ===================== 6. 页面渲染与结果展示 =====================
+        const PINYIN_BOUNDARY = '啊芭擦搭蛾发噶哈机喀拉妈拿哦啪期然撒塌挖昔压匝';
+        const PINYIN_LETTERS = 'ABCDEFGHJKLMNOPQRSTWXYZ';
+
+        function normalizeTransferLines() {
+            const stationMap = {};
+            metroData.forEach(line => {
+                line.stations.forEach(station => {
+                    if (!stationMap[station.name]) stationMap[station.name] = [];
+                    if (!stationMap[station.name].includes(line.lineName)) {
+                        stationMap[station.name].push(line.lineName);
+                    }
+                });
+            });
+            metroData.forEach(line => {
+                line.stations.forEach(station => {
+                    if (!station.transferLines) station.transferLines = [];
+                    stationMap[station.name].forEach(otherLine => {
+                        if (otherLine !== line.lineName && !station.transferLines.includes(otherLine)) {
+                            station.transferLines.push(otherLine);
+                        }
+                    });
+                });
+            });
+        }
+
+        function getPinyinInitial(char) {
+            if (/^[a-z0-9]$/i.test(char)) return char.toUpperCase();
+            if (!/[一-龥]/.test(char)) return '';
+            for (let i = 0; i < PINYIN_BOUNDARY.length; i++) {
+                const startChar = PINYIN_BOUNDARY[i];
+                const endChar = PINYIN_BOUNDARY[i + 1];
+                if (!endChar) return PINYIN_LETTERS[i] || '';
+                if (char.localeCompare(startChar, 'zh') >= 0 && char.localeCompare(endChar, 'zh') < 0) {
+                    return PINYIN_LETTERS[i] || '';
+                }
+            }
+            return '';
+        }
+
+        function getPinyinInitials(text) {
+            return Array.from(text).map(getPinyinInitial).join('').toLowerCase();
+        }
+
+        function matchesSearch(name, keyword) {
+            if (!keyword) return true;
+            const query = keyword.toLowerCase();
+            if (name.toLowerCase().includes(query)) return true;
+            return getPinyinInitials(name).includes(query);
+        }
+
+        function formatDuration(totalMinutes) {
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            if (hours > 0) return `${hours}小时${minutes}分钟`;
+            return `${minutes}分钟`;
+        }
+
+        function formatClock(dateObj) {
+            const hours = String(dateObj.getHours()).padStart(2, '0');
+            const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+            const seconds = String(dateObj.getSeconds()).padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+        }
+
+        function formatClockMinute(dateObj) {
+            const hours = String(dateObj.getHours()).padStart(2, '0');
+            const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+
+        function getLineShort(lineName) {
+            return lineName.replace('号线', '');
+        }
+
+        function getLineTagTextColor(lineName) {
+            return lineName === '5号线' || lineName === 'S9号线' ? '#333333' : '#ffffff';
+        }
+
+        function getStationIndex(lineName, stationName) {
+            const stations = getLineStations(lineName);
+            return stations.indexOf(stationName);
+        }
+
+        function getSegmentStationCount(lineName, startStation, endStation) {
+            const startIdx = getStationIndex(lineName, startStation);
+            const endIdx = getStationIndex(lineName, endStation);
+            if (startIdx === -1 || endIdx === -1) return 0;
+            return Math.abs(endIdx - startIdx);
+        }
+
+        function getDirectionLabel(lineName, startStation, endStation) {
+            const stations = getLineStations(lineName);
+            const direction = getDirection(lineName, startStation, endStation);
+            if (!direction || stations.length === 0) return '';
+            const terminal = direction === 'down' ? stations[stations.length - 1] : stations[0];
+            return `${terminal}方向`;
+        }
+
+        function escapeHtml(raw) {
+            return String(raw)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function buildPathVisual(path, options = {}) {
+            const { showArrival = true } = options;
+            if (!path || !path.segments || path.segments.length === 0) return '';
+
+            const rowHeight = 42;
+            const rows = [];
+            path.segments.forEach((seg, index) => {
+                rows.push({
+                    type: index === 0 ? 'start' : 'transfer',
+                    station: seg.start,
+                    line: seg.line,
+                    color: lineColorMap[seg.line] || '#999999',
+                    direction: getDirectionLabel(seg.line, seg.start, seg.end)
+                });
+            });
+            rows.push({
+                type: 'end',
+                station: path.segments[path.segments.length - 1].end
+            });
+
+            const totalHeight = rows.length * rowHeight;
+            const segmentTopStart = rowHeight / 2;
+
+            const segmentsHtml = path.segments.map((seg, index) => {
+                const segColor = lineColorMap[seg.line] || '#999999';
+                const top = segmentTopStart + index * rowHeight;
+                return `
+                    <div class="path-vertical-segment" style="top:${top}px;height:${rowHeight}px;--line-color:${segColor};"></div>
+                `;
+            }).join('');
+
+            const rowHtml = rows.map(row => {
+                if (row.type === 'end') {
+                    const arriveHtml = showArrival
+                        ? `<span class="path-arrive-time" data-duration="${path.totalTime}">--:--到达</span>`
+                        : '';
+                    return `
+                        <div class="path-row end" style="height:${rowHeight}px;">
+                            <span class="path-station-name">${escapeHtml(row.station)}</span>
+                            ${arriveHtml}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="path-row ${row.type}" style="height:${rowHeight}px;">
+                        <span class="path-station-name">${escapeHtml(row.station)}</span>
+                        <span class="path-line-tag" style="--line-color:${row.color};color:${getLineTagTextColor(row.line)};">${escapeHtml(getLineShort(row.line))}</span>
+                        <span class="path-direction">${escapeHtml(row.direction)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="path-visual">
+                    <div class="path-vertical-layout">
+                        <div class="path-line-column" style="height:${totalHeight}px;">
+                            ${segmentsHtml}
+                        </div>
+                        <div class="path-row-list" style="height:${totalHeight}px;">
+                            ${rowHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLines() {
+            lineList.innerHTML = '';
+            metroData.forEach(line => {
+                const lineItem = document.createElement('div');
+                lineItem.className = 'line-item';
+                lineItem.textContent = line.lineName;
+                lineItem.style.backgroundColor = line.lineColor;
+                lineItem.setAttribute('data-ripple', 'true');
+                if (line.lineCode === '5号线' || line.lineCode === 'S9号线') {
+                    lineItem.style.color = '#333';
+                }
+                if (line.lineCode === currentActiveLine.lineCode) {
+                    lineItem.classList.add('active');
+                }
+                lineItem.onclick = () => {
+                    currentActiveLine = line;
+                    renderLines();
+                    renderStations();
+                };
+                lineList.appendChild(lineItem);
+            });
+        }
+
+        function renderStations() {
+            stationList.innerHTML = '';
+            const keyword = stationSearch.value.trim().toLowerCase();
+            const results = [];
+            if (keyword) {
+                metroData.forEach(line => {
+                    line.stations.forEach(station => {
+                        if (matchesSearch(station.name, keyword)) {
+                            results.push({ line, station, isSearch: true });
+                        }
+                    });
+                });
+            } else {
+                currentActiveLine.stations.forEach(station => {
+                    results.push({ line: currentActiveLine, station, isSearch: false });
+                });
+            }
+
+            const iconMap = {
+                '南京站': 'fa-train',
+                '南京南站': 'fa-train',
+                '句容': 'fa-train',
+                '禄口机场': 'fa-plane'
+            };
+
+            results.forEach(({ line, station, isSearch }) => {
+                const stationItem = document.createElement('div');
+                stationItem.className = 'station-item';
+                stationItem.setAttribute('data-ripple', 'true');
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = station.name;
+                stationItem.appendChild(nameSpan);
+
+                if (iconMap[station.name]) {
+                    const icon = document.createElement('i');
+                    icon.className = `fas ${iconMap[station.name]}`;
+                    stationItem.appendChild(icon);
+                }
+
+                const metaWrap = document.createElement('div');
+                metaWrap.className = 'station-meta';
+
+                if (isSearch) {
+                    const lineBadge = document.createElement('span');
+                    lineBadge.className = 'line-badge';
+                    lineBadge.textContent = getLineShort(line.lineName);
+                    lineBadge.style.backgroundColor = line.lineColor;
+                    if (line.lineCode === '5号线' || line.lineCode === 'S9号线') {
+                        lineBadge.style.color = '#333';
+                    }
+                    metaWrap.appendChild(lineBadge);
+                }
+
+                if (station.transferLines && station.transferLines.length > 0) {
+                    station.transferLines.forEach(transferLine => {
+                        if (transferLine === line.lineName) return;
+                        const tag = document.createElement('span');
+                        tag.className = 'transfer-tag';
+                        tag.textContent = getLineShort(transferLine);
+                        tag.style.backgroundColor = lineColorMap[transferLine];
+                        metaWrap.appendChild(tag);
+                    });
+                }
+
+                stationItem.appendChild(metaWrap);
+                stationItem.onclick = () => confirmStation(station.name);
+                stationList.appendChild(stationItem);
+            });
+            stationList.scrollTop = 0;
+        }
+
+        function updateButtons() {
+            const startText = selection.start || '请选择起点站';
+            const endText = selection.end || '请选择终点站';
+            homeStartBtn.textContent = startText;
+            resultStartBtn.textContent = startText;
+            homeEndBtn.textContent = endText;
+            resultEndBtn.textContent = endText;
+        }
+
+        function showHomeView() {
+            homeView.classList.remove('hidden');
+            resultView.classList.add('hidden');
+        }
+
+        function showResultView(needHeaderAnimation) {
+            homeView.classList.add('hidden');
+            resultView.classList.remove('hidden');
+            if (!needHeaderAnimation) return;
+            resultView.classList.add('is-entering');
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => {
+                    resultView.classList.remove('is-entering');
+                });
+            });
+        }
+
+        function calcLastTimes(allPaths) {
+            function pickByDay(dayType) {
+                let best = null;
+                allPaths.forEach(path => {
+                    const depart = calcPathLastTime(path, dayType);
+                    if (depart === null) return;
+                    const arrive = depart + path.totalTime;
+                    if (!best || depart > best.depart || (depart === best.depart && arrive > best.arrive)) {
+                        best = { path, depart, arrive };
+                    }
+                });
+                return best;
+            }
+
+            return {
+                weekday: pickByDay('weekday'),
+                weekend: pickByDay('weekend')
+            };
+        }
+
+        function pickBestLastPath(allPaths, lastTimes) {
+            const candidates = [lastTimes.weekday, lastTimes.weekend].filter(Boolean);
+            if (candidates.length === 0) return allPaths[0];
+            candidates.sort((a, b) => {
+                if (a.depart !== b.depart) return b.depart - a.depart;
+                return b.arrive - a.arrive;
+            });
+            return candidates[0].path;
+        }
+
+        function updateArrivalClocks() {
+            const arriveNodes = resultCards.querySelectorAll('.path-arrive-time[data-duration]');
+            if (arriveNodes.length === 0) return;
+            const now = Date.now();
+            arriveNodes.forEach(node => {
+                const duration = Number(node.dataset.duration);
+                if (Number.isNaN(duration)) return;
+                const arriveTime = new Date(now + duration * 60000);
+                node.textContent = `${formatClockMinute(arriveTime)}到达`;
+            });
+        }
+
+        function startArrivalTicker() {
+            if (arriveClockTimer !== null) return;
+            arriveClockTimer = window.setInterval(updateArrivalClocks, 1000);
+        }
+
+        function runCardEntryAnimation() {
+            const cards = Array.from(resultCards.querySelectorAll('.plan-card'));
+            if (cards.length === 0) return;
+            cards.forEach((card, index) => {
+                card.classList.add('card-enter');
+                card.style.transitionDelay = `${Math.min(index * 40, 120)}ms`;
+            });
+            window.requestAnimationFrame(() => {
+                cards.forEach(card => card.classList.add('card-enter-active'));
+            });
+            window.setTimeout(() => {
+                cards.forEach(card => {
+                    card.classList.remove('card-enter', 'card-enter-active');
+                    card.style.transitionDelay = '';
+                });
+            }, 560);
+        }
+
+        function setCardsContent(cardsHtml, animate) {
+            if (cardsSwapTimer !== null) {
+                window.clearTimeout(cardsSwapTimer);
+                cardsSwapTimer = null;
+            }
+
+            const currentCards = Array.from(resultCards.querySelectorAll('.plan-card'));
+            if (animate && currentCards.length > 0) {
+                currentCards.forEach(card => card.classList.add('card-exit'));
+                cardsSwapTimer = window.setTimeout(() => {
+                    resultCards.innerHTML = cardsHtml;
+                    runCardEntryAnimation();
+                    updateArrivalClocks();
+                }, 400);
+                return;
+            }
+
+            resultCards.innerHTML = cardsHtml;
+            if (animate) {
+                runCardEntryAnimation();
+            }
+            updateArrivalClocks();
+        }
+
+        function buildLastGrid(lastTimes) {
+            if (!lastTimes) return '';
+            const weekday = lastTimes.weekday;
+            const weekend = lastTimes.weekend;
+            const weekdayText = weekday ? minutesToTime(weekday.depart) : '--:--';
+            const weekendText = weekend ? minutesToTime(weekend.depart) : '--:--';
+            const isUnified = weekday && weekend && weekday.depart === weekend.depart;
+
+            if (isUnified) {
+                return `
+                    <div class="last-panel single">
+                        <div class="last-panel-label">最晚上车时间</div>
+                        <div class="last-panel-values">
+                            <div class="last-slot">
+                                <div class="last-slot-value">${weekdayText}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="last-panel">
+                    <div class="last-panel-label">最晚上车时间</div>
+                    <div class="last-panel-values">
+                        <div class="last-slot">
+                            <div class="last-slot-label">周日至周四</div>
+                            <div class="last-slot-value">${weekdayText}</div>
+                        </div>
+                        <div class="last-slot">
+                            <div class="last-slot-label">周五至周六</div>
+                            <div class="last-slot-value">${weekendText}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function buildPlanCard(config) {
+            const iconsHtml = config.icons.map(icon => `<i class="${icon}"></i>`).join('');
+            const durationText = formatDuration(config.path.totalTime);
+            const shouldHideLastPath = Boolean(config.isLast && config.hideLastPath);
+            const pathHtml = shouldHideLastPath
+                ? ''
+                : buildPathVisual(config.path, { showArrival: !config.isLast });
+            const lastHtml = config.isLast ? buildLastGrid(config.lastTimes) : '';
+            const shouldHideDuration = Boolean(config.isLast && config.hideDuration);
+            const durationHtml = shouldHideDuration ? '' : `<div class="metric-duration">${durationText}</div>`;
+            const bodyHtml = config.isLast ? `${lastHtml}${pathHtml}` : `${pathHtml}${lastHtml}`;
+            return `
+                <div class="plan-card">
+                    <div class="plan-header">
+                        <div class="plan-title">${iconsHtml}<span>${config.title}</span></div>
+                        ${durationHtml}
+                    </div>
+                    ${bodyHtml}
+                </div>
+            `;
+        }
+
+        function isSameRoute(pathA, pathB) {
+            if (!pathA || !pathB || !Array.isArray(pathA.segments) || !Array.isArray(pathB.segments)) return false;
+            if (pathA.segments.length !== pathB.segments.length) return false;
+            for (let i = 0; i < pathA.segments.length; i++) {
+                const a = pathA.segments[i];
+                const b = pathB.segments[i];
+                if (!a || !b) return false;
+                if (a.line !== b.line || a.start !== b.start || a.end !== b.end) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function renderResults(animate = true) {
+            const startStation = selection.start;
+            const endStation = selection.end;
+            if (!startStation || !endStation) return;
+            if (startStation === endStation) {
+                alert('起点站和终点站不能相同');
+                return;
+            }
+
+            const timePath = calcOptimalPath(startStation, endStation, 'time');
+            const allPaths = calcOptimalPath(startStation, endStation, 'last');
+
+            if (!timePath || !allPaths || allPaths.length === 0) {
+                alert('未找到可行路径');
+                return;
+            }
+
+            const lastTimes = calcLastTimes(allPaths);
+            const lastPath = pickBestLastPath(allPaths, lastTimes);
+            const sameRoute = isSameRoute(timePath, lastPath);
+            const cards = [
+                buildPlanCard({
+                    title: '时间最短',
+                    icons: ['fa-solid fa-bolt'],
+                    path: timePath
+                }),
+                buildPlanCard({
+                    title: '末班最晚',
+                    icons: ['fa-regular fa-moon'],
+                    path: lastPath,
+                    isLast: true,
+                    lastTimes,
+                    hideLastPath: sameRoute,
+                    hideDuration: sameRoute
+                })
+            ];
+
+            setCardsContent(cards.join(''), animate);
+        }
+
+        // ===================== 7. 交互逻辑 =====================
+        function openPicker(target) {
+            currentTarget = target;
+            stationSearch.value = '';
+            overlay.classList.add('active');
+            picker.classList.add('active');
+            renderStations();
+        }
+
+        function closeModal() {
+            overlay.classList.remove('active');
+            picker.classList.remove('active');
+        }
+
+        function showResultsAfterSelection() {
+            const firstTransition = !hasHeaderMovedToTop;
+            showResultView(firstTransition);
+            renderResults(true);
+            hasHeaderMovedToTop = true;
+        }
+
+        function confirmStation(stationName) {
+            if (currentTarget === 'start' && selection.end === stationName) {
+                alert('起点站和终点站不能相同');
+                return;
+            }
+            if (currentTarget === 'end' && selection.start === stationName) {
+                alert('起点站和终点站不能相同');
+                return;
+            }
+            selection[currentTarget] = stationName;
+            updateButtons();
+            closeModal();
+            if (selection.start && selection.end) {
+                showResultsAfterSelection();
+            } else {
+                showHomeView();
+            }
+        }
+
+        function swapStations() {
+            const temp = selection.start;
+            selection.start = selection.end;
+            selection.end = temp;
+            updateButtons();
+
+            if (selection.start && selection.end) {
+                showResultView(false);
+                renderResults(true);
+            } else {
+                showHomeView();
+            }
+        }
+
+        // ===================== 8. 通用水波纹动效 =====================
+        function parseRgbColor(value) {
+            if (!value) return null;
+            const matched = value.match(/rgba?\(([^)]+)\)/i);
+            if (!matched) return null;
+            const nums = matched[1].split(',').map(item => Number(item.trim()));
+            if (nums.length < 3 || nums.slice(0, 3).some(Number.isNaN)) return null;
+            return nums.slice(0, 3);
+        }
+
+        function getRippleColor(element) {
+            const styles = window.getComputedStyle(element);
+            const customColor = styles.getPropertyValue('--ripple-color').trim();
+            if (customColor) return customColor;
+
+            const bgRgb = parseRgbColor(styles.backgroundColor);
+            if (bgRgb && styles.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+                return `rgba(${bgRgb[0]}, ${bgRgb[1]}, ${bgRgb[2]}, 0.22)`;
+            }
+
+            const textRgb = parseRgbColor(styles.color);
+            if (textRgb) {
+                return `rgba(${textRgb[0]}, ${textRgb[1]}, ${textRgb[2]}, 0.22)`;
+            }
+            return 'rgba(10, 100, 201, 0.2)';
+        }
+
+        function createRipple(element, clientX, clientY) {
+            const rect = element.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+            const size = Math.max(rect.width, rect.height) * 2;
+            const wave = document.createElement('span');
+            wave.className = 'ripple-wave';
+            wave.style.width = `${size}px`;
+            wave.style.height = `${size}px`;
+            wave.style.left = `${clientX - rect.left}px`;
+            wave.style.top = `${clientY - rect.top}px`;
+            wave.style.backgroundColor = getRippleColor(element);
+            element.appendChild(wave);
+            wave.addEventListener('animationend', () => wave.remove(), { once: true });
+        }
+
+        // ===================== 9. 事件绑定 =====================
+        homeStartBtn.addEventListener('click', () => openPicker('start'));
+        homeEndBtn.addEventListener('click', () => openPicker('end'));
+        resultStartBtn.addEventListener('click', () => openPicker('start'));
+        resultEndBtn.addEventListener('click', () => openPicker('end'));
+        homeSwapBtn.addEventListener('click', swapStations);
+        resultSwapBtn.addEventListener('click', swapStations);
+
+        overlay.addEventListener('click', closeModal);
+        clearSearch.addEventListener('click', () => {
+            stationSearch.value = '';
+            renderStations();
+        });
+        stationSearch.addEventListener('input', renderStations);
+
+        document.addEventListener('pointerdown', event => {
+            if (event.button !== 0) return;
+            const target = event.target.closest('[data-ripple="true"]');
+            if (!target) return;
+            createRipple(target, event.clientX, event.clientY);
+        });
+
+        // ===================== 10. 页面初始化 =====================
+        normalizeTransferLines();
+        initGraph();
+        renderLines();
+        renderStations();
+        updateButtons();
+        startArrivalTicker();
+        showHomeView();
+    </script>
+</body>
+</html>
